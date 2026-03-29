@@ -1,0 +1,145 @@
+---
+title: "Project 1 - Kindergarten Vaccination Rates in Montomgery County"
+format: html
+editor: visual
+---
+
+Maryland Kindergarten Immunization Records 2023-2024
+
+For this project, I am looking at immunization records for Kindergarten students in Montgomery County, Maryland. Maryland for the 2023–2024 school year. The data comes directly from the Maryland Department of Health.
+
+<https://health.maryland.gov/phpa/OIDEOR/IMMUN/pages/kindergarten_immunization_rates_by_school.aspx>
+
+The dataset includes vaccination rates for DTaP, Polio, MMR, Hep B, and Varicella, along with medical and religious exemption rates across public and private schools.
+
+Research Questions: How do vaccination rates compare between public and private schools in Montgomery County?
+
+```{r}
+library(tidyverse)
+library(readr)
+library(ggplot2)
+```
+
+```{r}
+data <- readxl::read_excel("/Users/manuelbandini/Downloads/DATA 110 Project 1.1.xlsx")
+```
+
+```{r}
+## Data Cleaning
+# When the data was loaded, all numeric columns were read as text (character type)
+# This means R cannot perform any calculations on them
+# Here I am converting all numeric columns to the correct number format using as.numeric()
+
+data <- data |>
+  mutate(
+    `TOTAL K Students` = as.numeric(`TOTAL K Students`),
+    `Total K Students     WITH records` = as.numeric(`Total K Students     WITH records`),
+    `Total K Students WITHOUT records` = as.numeric(`Total K Students WITHOUT records`),
+    `% Medical Exemption` = as.numeric(`% Medical Exemption`),
+    `% Religious Exemption` = as.numeric(`% Religious Exemption`),
+    `% DTaP` = as.numeric(`% DTaP`),
+    `% Polio` = as.numeric(`% Polio`),
+    `% MMR` = as.numeric(`% MMR`),
+    `% Hep B` = as.numeric(`% Hep B`),
+    `% Varicella` = as.numeric(`% Varicella`)
+  )|>
+  #Remove rows with mnissing values
+  drop_na()
+```
+
+```{r}
+# Here I am dividing religious exemption rates into three groups
+# Low = schools with little to no religious exemptions
+# Medium = schools with some religious exemptions  
+# High = schools with a lot of religious exemptions
+
+data <- data |>
+  mutate(Exemption_Level = case_when(
+    `% Religious Exemption` == 0 ~ "Low",
+    `% Religious Exemption` <= 0.05 ~ "Medium",
+    `% Religious Exemption` > 0.05 ~ "High"
+  ))
+```
+
+```{r}
+## Linear Regression
+# Here I am running a simple linear regression to see if religious exemption rates
+# can predict MMR vaccination rates in Montgomery County schools
+
+model <- lm(`% MMR` ~ `% Religious Exemption`, data = data)
+summary(model)
+```
+
+```{r}
+# Diagnostic plots to check the quality of our regression model
+plot(model)
+```
+
+```{r}
+## Exploring the Data
+# First, I am taking a quick look at the distribution of MMR vaccination rates
+# across all Montgomery County schools
+
+ggplot(data, aes(x = `% MMR`)) +
+  geom_histogram()
+```
+
+```{r}
+# Here I am taking a quick look at how MMR rates differ
+# between public and private schools
+
+ggplot(data, aes(x = `Type of School`, y = `% MMR`)) +
+  geom_boxplot()
+```
+
+```{r}
+# Here I am taking a quick look at how MMR rates differ
+# between public and private schools
+
+ggplot(data, aes(x = `Type of School`, y = `% MMR`)) +
+  geom_boxplot()
+```
+
+```{r}
+# Starting with the basic structure of the plot
+# I am telling ggplot to use school type on the x axis and MMR rate on the y axis
+
+ggplot(data, aes(x = `Type of School`, y = `% MMR`, fill = `Type of School`)) +
+  geom_boxplot()
+```
+
+```{r}
+# Starting with the basic structure of the plot
+# I am telling ggplot to use school type on the x axis and MMR rate on the y axis
+# scale_fill_manual lets me choose my own colors instead of the default ggplot colors
+
+ggplot(data, aes(x = `Type of School`, y = `% MMR`, fill = `Type of School`)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("Public" = "blue", 
+                               "Private (non-public)" = "red",
+                               "Unknown" = "green"))
+```
+
+```{r}
+# Final polished boxplot comparing MMR vaccination rates
+# between public and private schools in Montgomery County
+# colored by religious exemption level (Low, Medium, High)
+
+ggplot(data, aes(x = `Type of School`, y = `% MMR`, fill = Exemption_Level)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("Low" = "blue", 
+                               "Medium" = "orange",
+                               "High" = "red")) +
+  theme_minimal() +
+  labs(
+    title = "MMR Vaccination Rates in Montgomery County Schools",
+    x = "Type of School",
+    y = "MMR Vaccination Rate",
+    fill = "Religious Exemption Level",
+    caption = "Source: Maryland Department of Health"
+  )
+```
+
+When I initially loaded the dataset, it had over 190 rows and all numeric columns were being read as text since the data was pulled as an Excel file, so I converted them to numbers using as.numeric(). I also cleaned the data by removing rows with missing values, which left with 172 rows. Since I was focusing in the religious exemptions, I created a new column and group them by levels. I called them Low, Medium, and High.
+
+What my data showed me was that schools with low religious exemption tend to have higher MMR vaccination rates. Private schools have higher variation than public schools; but overall Montgomery County has a very high MMR vaccination compliance. One thing I wish I could have done was compare us the entire state to see where we stand.
